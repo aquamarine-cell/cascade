@@ -33,7 +33,8 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "cascade=cascade.cli:cli",
+            "cascade=cascade.repl:main",
+            "cascade-cli=cascade.cli:cli",
         ],
     },
 )
