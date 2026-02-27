@@ -1,0 +1,29 @@
+# Example Cascade configuration
+# Copy to ~/.config/cascade/config.yaml and set your API keys
+
+providers:
+  gemini:
+    enabled: true  # Change to true and set API key below
+    api_key: ${GEMINI_API_KEY}
+    model: gemini-2.0-flash
+    temperature: 0.7
+    max_tokens: 2048
+  
+  claude:
+    enabled: true  # Change to true and set API key below
+    api_key: ${CLAUDE_API_KEY}
+    model: claude-3-5-sonnet-20241022
+    temperature: 0.7
+    max_tokens: 2048
+
+defaults:
+  provider: gemini
+  theme: deep-stream
+
+# Before using Cascade, set your API keys:
+#
+# export GEMINI_API_KEY="your-gemini-key-here"
+# export CLAUDE_API_KEY="your-claude-key-here"
+#
+# Then run:
+#   cascade ask "hello world"
