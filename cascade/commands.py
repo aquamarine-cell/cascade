@@ -4,7 +4,9 @@ Commands post state messages rather than manipulating widgets directly.
 """
 
 import datetime
+import json
 from dataclasses import dataclass
+from pathlib import Path
 
 from .theme import MODES, PALETTE, get_provider_theme
 
@@ -537,7 +539,10 @@ class CommandHandler:
         from .auth import detect_claude, detect_codex, detect_gemini
 
         detectors = {
-            "gemini": (detect_gemini, "gemini auth login"),
+            "gemini": (
+                detect_gemini,
+                "Run `gemini`, then use `/auth` and choose Login with Google.",
+            ),
             "claude": (detect_claude, "claude login"),
             "openai": (detect_codex, "codex login"),
         }
@@ -568,9 +573,25 @@ class CommandHandler:
         detect_fn, login_hint = detectors[provider]
         cred = detect_fn()
         if cred is None:
+            if provider == "gemini":
+                oauth_path = Path.home() / ".gemini" / "oauth_creds.json"
+                if oauth_path.is_file():
+                    try:
+                        data = json.loads(oauth_path.read_text(encoding="utf-8"))
+                        expiry_ms = data.get("expiry_date")
+                        if isinstance(expiry_ms, (int, float)):
+                            expiry_dt = datetime.datetime.fromtimestamp(expiry_ms / 1000.0)
+                            self._post_system(
+                                "No valid gemini CLI credentials found. "
+                                f"Detected expired token (expired {expiry_dt}). "
+                                f"{login_hint} Then retry /login gemini."
+                            )
+                            return
+                    except Exception:
+                        pass
             self._post_system(
                 f"No {provider} CLI credentials found. "
-                f"Run `{login_hint}` in a shell, then retry /login {provider}."
+                f"{login_hint} Then retry /login {provider}."
             )
             return
 
