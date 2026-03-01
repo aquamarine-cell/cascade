@@ -1,90 +1,118 @@
-"""OpenRouter provider for multi-model access (Qwen, etc)."""
+"""OpenRouter provider for multi-model access (Qwen, Llama, etc)."""
 
+import json
+from typing import Optional, Iterator, TYPE_CHECKING
 import httpx
-from typing import Optional, AsyncGenerator
-from .base import BaseProvider
+from .base import BaseProvider, ProviderConfig
+from .registry import register_provider
+from ._openai_tools import openai_ask_with_tools
+
+if TYPE_CHECKING:
+    from ..tools.schema import ToolDef
 
 
+@register_provider("openrouter")
 class OpenRouterProvider(BaseProvider):
-    """Provider for OpenRouter API models (Qwen, etc)."""
+    """Provider for OpenRouter API - OpenAI-compatible endpoint."""
 
-    def __init__(self, config: dict):
-        """Initialize OpenRouter provider.
-        
-        Args:
-            config: Dict with 'api_key' and optional 'model' (default: qwen3.5-35b-a3b).
-        """
+    def __init__(self, config: ProviderConfig):
         super().__init__(config)
-        self.api_key = config.get("api_key")
-        self.model = config.get("model", "qwen/qwen3.5-35b-a3b")
-        self.base_url = "https://openrouter.ai/api/v1"
-        
-        if not self.api_key:
-            raise ValueError("OpenRouter API key is required")
+        self.base_url = config.base_url or "https://openrouter.ai/api/v1"
+        self.client = httpx.Client(timeout=60.0)
 
-    async def query(self, prompt: str, **kwargs) -> str:
-        """Send query to OpenRouter and get response.
-        
-        Args:
-            prompt: User prompt/question.
-            **kwargs: Additional parameters (temperature, max_tokens, etc).
-        
-        Returns:
-            Response text from the model.
-        """
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "HTTP-Referer": "https://cascade.ai",
-                },
-                json={
-                    "model": self.model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": kwargs.get("temperature", 0.7),
-                    "max_tokens": kwargs.get("max_tokens", 2048),
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data["choices"][0]["message"]["content"]
+    def _headers(self) -> dict:
+        return {
+            "Authorization": f"Bearer {self.config.api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/cascade-cli",
+        }
 
-    async def stream(self, prompt: str, **kwargs) -> AsyncGenerator[str, None]:
-        """Stream response from OpenRouter.
-        
-        Args:
-            prompt: User prompt/question.
-            **kwargs: Additional parameters.
-        
-        Yields:
-            Streamed response chunks.
-        """
-        async with httpx.AsyncClient() as client:
-            async with client.stream(
-                "POST",
-                f"{self.base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "HTTP-Referer": "https://cascade.ai",
-                },
-                json={
-                    "model": self.model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": True,
-                    "temperature": kwargs.get("temperature", 0.7),
-                    "max_tokens": kwargs.get("max_tokens", 2048),
-                },
-            ) as response:
+    def ask(self, prompt: str, system: Optional[str] = None) -> str:
+        """Get a complete response from OpenRouter."""
+        return "".join(self.stream(prompt, system))
+
+    def stream(self, prompt: str, system: Optional[str] = None) -> Iterator[str]:
+        """Stream tokens from OpenRouter."""
+        self._last_usage = None
+        try:
+            url = f"{self.base_url}/chat/completions"
+
+            messages = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({"role": "user", "content": prompt})
+
+            payload = {
+                "model": self.config.model,
+                "messages": messages,
+                "stream": True,
+                "stream_options": {"include_usage": True},
+                "temperature": self.config.temperature,
+            }
+            if self.config.max_tokens:
+                payload["max_tokens"] = self.config.max_tokens
+
+            with self.client.stream("POST", url, json=payload, headers=self._headers()) as response:
                 response.raise_for_status()
-                async for line in response.aiter_lines():
-                    if line.startswith("data: "):
-                        try:
-                            import json
-                            data = json.loads(line[6:])
-                            if "choices" in data and data["choices"]:
-                                chunk = data["choices"][0].get("delta", {}).get("content", "")
-                                if chunk:
-                                    yield chunk
-                        except (json.JSONDecodeError, KeyError):
-                            continue
+                for line in response.iter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+                    if data_str.strip() == "[DONE]":
+                        break
+                    try:
+                        data = json.loads(data_str)
+                        usage = data.get("usage")
+                        if usage:
+                            self._last_usage = (
+                                usage.get("prompt_tokens", 0),
+                                usage.get("completion_tokens", 0),
+                            )
+                        choices = data.get("choices", [])
+                        if choices:
+                            delta = choices[0].get("delta", {})
+                            content = delta.get("content", "")
+                            if content:
+                                yield content
+                    except json.JSONDecodeError:
+                        continue
+        except Exception as e:
+            yield f"Error: {str(e)}"
+
+    def ask_with_tools(
+        self,
+        prompt: str,
+        tools: dict[str, "ToolDef"],
+        system: Optional[str] = None,
+        max_rounds: int = 5,
+    ) -> tuple[str, list[dict]]:
+        """OpenAI-compatible tool calling via OpenRouter."""
+        return openai_ask_with_tools(
+            client=self.client,
+            url=f"{self.base_url}/chat/completions",
+            headers=self._headers(),
+            model=self.config.model,
+            temperature=self.config.temperature,
+            max_tokens=self.config.max_tokens,
+            prompt=prompt,
+            tools=tools,
+            system=system,
+            max_rounds=max_rounds,
+        )
+
+    def compare(self, prompt: str, system: Optional[str] = None) -> dict:
+        """Generate comparison data."""
+        response = self.ask(prompt, system)
+        return {
+            "provider": self.name,
+            "model": self.config.model,
+            "response": response,
+            "length": len(response),
+        }
+
+    def __del__(self):
+        """Cleanup HTTP client."""
+        try:
+            self.client.close()
+        except Exception:
+            pass

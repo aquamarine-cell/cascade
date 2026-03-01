@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cascade-cli"
+version = "0.3.0"
+description = "Multi-model AI assistant CLI - Claude, Gemini, OpenAI, OpenRouter in one tool"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    { name = "Eve" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "click>=8.0",
+    "rich>=13.0",
+    "pyyaml>=6.0",
+    "httpx>=0.24.0",
+    "pygments>=2.14.0",
+    "textual>=0.86.0",
+    "pyfiglet>=1.0",
+    "prompt_toolkit>=3.0",
+]
+
+[project.optional-dependencies]
+web = [
+    "starlette>=0.27.0",
+    "uvicorn>=0.22.0",
+    "python-multipart>=0.0.6",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+    "ruff",
+]
+
+[project.scripts]
+cascade = "cascade.repl:main"
+cascade-cli = "cascade.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["cascade*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"

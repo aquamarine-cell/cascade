@@ -1,0 +1,280 @@
+/* Cascade TUI -- master stylesheet */
+
+Screen {
+    background: #0d1117;
+    overflow: hidden;
+}
+
+/* ------------------------------------------------------------------ */
+/* Layout zones                                                        */
+/* ------------------------------------------------------------------ */
+
+#header_zone {
+    height: auto;
+    width: 100%;
+    padding: 1 2;
+}
+
+#chat_zone {
+    height: 1fr;
+    width: 100%;
+    overflow-y: auto;
+    padding: 0 1;
+}
+
+#input_zone {
+    dock: bottom;
+    height: auto;
+    width: 100%;
+    padding: 0 2 0 2;
+}
+
+#status_bar {
+    dock: bottom;
+    height: 1;
+    width: 100%;
+    background: #121218;
+    padding: 0 2;
+}
+
+/* ------------------------------------------------------------------ */
+/* Welcome header                                                      */
+/* ------------------------------------------------------------------ */
+
+#welcome_header {
+    height: auto;
+    width: 100%;
+    align-horizontal: center;
+    padding: 1 0;
+}
+
+#banner {
+    width: auto;
+    height: auto;
+    content-align: center middle;
+}
+
+#version_line {
+    text-align: left;
+    width: 100%;
+    color: #6e7681;
+    margin-top: 1;
+    padding-left: 1;
+}
+
+#ghost_table {
+    width: auto;
+    height: auto;
+    content-align: center middle;
+    margin-top: 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* Chat history                                                        */
+/* ------------------------------------------------------------------ */
+
+ChatHistory {
+    height: 1fr;
+    width: 100%;
+    overflow-y: auto;
+    padding: 0 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* Message widgets                                                     */
+/* ------------------------------------------------------------------ */
+
+.message-row {
+    height: auto;
+    width: 100%;
+    padding: 0 0 1 0;
+    layout: horizontal;
+}
+
+.gutter-label {
+    width: 10;
+    height: auto;
+    text-align: right;
+    padding-right: 1;
+    min-width: 10;
+    max-width: 10;
+}
+
+.message-body {
+    width: 1fr;
+    height: auto;
+    padding-left: 1;
+}
+
+.thinking-indicator {
+    height: 1;
+    width: 100%;
+    padding: 0 0 0 11;
+    color: #6e7681;
+}
+
+/* ------------------------------------------------------------------ */
+/* Code block                                                          */
+/* ------------------------------------------------------------------ */
+
+.code-block {
+    height: auto;
+    width: 100%;
+    margin: 1 0;
+    background: #161b22;
+    border: solid #30363d;
+    padding: 0 1;
+}
+
+.code-header {
+    height: 1;
+    width: 100%;
+    padding: 0 1;
+}
+
+.code-content {
+    height: auto;
+    width: 100%;
+    padding: 0 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* Diff block                                                          */
+/* ------------------------------------------------------------------ */
+
+.diff-block {
+    height: auto;
+    width: 100%;
+    margin: 1 0;
+    background: #161b22;
+    border: solid #e5c747 40%;
+    padding: 0 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* Input frame                                                         */
+/* ------------------------------------------------------------------ */
+
+InputFrame {
+    height: auto;
+    width: 100%;
+    padding: 0 1 1 1;
+}
+
+.input-area {
+    height: 3;
+    width: 100%;
+    border: round #b44dff;
+    background: #121218;
+    padding: 0 1;
+    layout: horizontal;
+}
+
+.input-area:focus-within {
+    border: round #b44dff;
+}
+
+.prompt-char {
+    width: 2;
+    height: 1;
+    padding: 0;
+    content-align-vertical: middle;
+}
+
+.main-input {
+    width: 1fr;
+    height: 1;
+    background: #121218;
+    border: none;
+    padding: 0;
+}
+
+.main-input:focus {
+    border: none;
+}
+
+.mode-indicator {
+    height: 1;
+    width: 100%;
+    text-align: center;
+    color: #6e7681;
+    padding: 0 0 0 2;
+}
+
+/* ------------------------------------------------------------------ */
+/* Status bar                                                          */
+/* ------------------------------------------------------------------ */
+
+StatusBar {
+    height: 1;
+    dock: bottom;
+    width: 100%;
+    background: #121218;
+    padding: 0 2;
+}
+
+/* ------------------------------------------------------------------ */
+/* Exit screen                                                         */
+/* ------------------------------------------------------------------ */
+
+#exit_screen {
+    align: center middle;
+    background: #0d1117;
+}
+
+.session-card {
+    width: 62;
+    height: auto;
+    border: round #30363d;
+    background: #121218;
+    padding: 1 2;
+    content-align: center middle;
+}
+
+.card-row {
+    height: 1;
+    width: 100%;
+}
+
+.card-label {
+    width: 14;
+    color: #6e7681;
+}
+
+.card-value {
+    width: 1fr;
+    color: #c9d1d9;
+}
+
+/* ------------------------------------------------------------------ */
+/* Autocomplete dropdown                                               */
+/* ------------------------------------------------------------------ */
+
+AutocompleteDropdown {
+    height: auto;
+    max-height: 10;
+    width: 100%;
+    background: #161b22;
+    border: solid #30363d;
+    padding: 0;
+    display: none;
+}
+
+CommandSuggestion {
+    height: 1;
+    width: 100%;
+    padding: 0 1;
+}
+
+CommandSuggestion.selected {
+    background: #1c2128;
+}
+
+/* Bookmark separator */
+.bookmark {
+    height: 1;
+    width: 100%;
+    text-align: center;
+    color: #6e7681;
+    margin: 1 0;
+}

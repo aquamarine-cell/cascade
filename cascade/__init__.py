@@ -1,17 +1,17 @@
-"""Cascade - Beautiful multi-model AI assistant CLI."""
+"""Cascade - Multi-model AI assistant CLI."""
 
-__version__ = "0.1.0"
+__version__ = "0.3.0"
 __author__ = "Eve"
 
-from .cli import cli, get_app
-from .providers import BaseProvider, GeminiProvider, ClaudeProvider
+from .cli import cli, get_app, CascadeApp
 from .config import ConfigManager
+from .providers.base import BaseProvider, ProviderConfig
 
 __all__ = [
     "cli",
     "get_app",
+    "CascadeApp",
     "BaseProvider",
-    "GeminiProvider",
-    "ClaudeProvider",
+    "ProviderConfig",
     "ConfigManager",
 ]

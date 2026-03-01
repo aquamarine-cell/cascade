@@ -1,16 +1,16 @@
-"""Output rendering functions."""
+"""Output rendering -- thin facade over gutter, code_block, and stream modules.
 
-from rich.console import Console
-from rich.panel import Panel
+Preserves backward-compatible function signatures used by cli.py.
+"""
+
+from typing import Iterator
+
 from rich.text import Text
-from rich.columns import Columns
-from rich.syntax import Syntax
-from typing import Iterator, Optional
-import sys
 
-from .theme import CYAN, VIOLET, LIGHT_TEXT, console
-
-SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+from .gutter import render_response_block
+from .markdown import render_markdown_line
+from .stream import StreamRenderer
+from .theme import DEFAULT_THEME, console
 
 
 def render_response(
@@ -19,117 +19,76 @@ def render_response(
     thinking: str = "",
     language: str = "text",
 ) -> None:
-    """Render a complete response."""
+    """Render a complete response through the gutter system."""
+    theme = DEFAULT_THEME.get_provider(provider)
+
     if thinking:
-        thinking_panel = Panel(
-            Text(thinking, style=f"dim {LIGHT_TEXT}"),
-            title=Text("💭 Thinking", style=VIOLET),
-            border_style=VIOLET,
-            padding=(1, 2),
-        )
-        console.print(thinking_panel)
-    
-    # Syntax highlight if it looks like code
-    if language != "text" or (text.startswith("```") or text.startswith("def ") or text.startswith("import ")):
-        try:
-            syntax = Syntax(
-                text,
-                language or "python",
-                theme="monokai",
-                line_numbers=False,
-                word_wrap=True,
-            )
-            panel = Panel(
-                syntax,
-                title=Text(f"📝 {provider}", style=CYAN) if provider else None,
-                border_style=CYAN,
-                padding=(1, 2),
-            )
-            console.print(panel)
-        except:
-            # Fall back to plain text
-            panel = Panel(
-                Text(text, style=LIGHT_TEXT),
-                title=Text(f"📝 {provider}", style=CYAN) if provider else None,
-                border_style=CYAN,
-                padding=(1, 2),
-            )
-            console.print(panel)
-    else:
-        panel = Panel(
-            Text(text, style=LIGHT_TEXT),
-            title=Text(f"📝 {provider}", style=CYAN) if provider else None,
-            border_style=CYAN,
-            padding=(1, 2),
-        )
-        console.print(panel)
+        palette = DEFAULT_THEME.palette
+        think_line = Text()
+        think_line.append("[thinking] ", style=f"dim {palette.text_dim}")
+        think_line.append(thinking[:200], style=f"dim {palette.text}")
+        console.print(think_line)
+
+    # Use the stream renderer for consistent handling of code blocks
+    renderer = StreamRenderer(theme, console)
+    renderer.feed(text)
+    renderer.finish()
 
 
 def stream_response(
     stream_iter: Iterator[str],
     provider: str = "",
 ) -> str:
-    """Stream and display response in real-time."""
-    console.print(Text(f"▶ Streaming from {provider}...", style=f"dim {CYAN}"))
-    
+    """Stream and display response in real-time through the gutter."""
+    theme = DEFAULT_THEME.get_provider(provider)
+    renderer = StreamRenderer(theme, console)
+
     full_text = ""
-    for i, chunk in enumerate(stream_iter):
+    for chunk in stream_iter:
         full_text += chunk
-        # Live update without newlines for smooth streaming
-        sys.stdout.write(chunk)
-        sys.stdout.flush()
-    
-    console.print()  # New line after streaming
+        renderer.feed(chunk)
+
+    renderer.finish()
     return full_text
 
 
+def render_error(text: str) -> None:
+    """Render an error message."""
+    palette = DEFAULT_THEME.palette
+    err = Text()
+    err.append("err ", style=f"bold {palette.error}")
+    err.append("| ", style=f"dim {palette.text_muted}")
+    err.append(text, style=palette.error)
+    console.print(err)
+
+
 def render_comparison(results: list[dict]) -> None:
-    """Render side-by-side comparison of multiple providers."""
-    panels = []
+    """Render comparison results from multiple providers."""
     for result in results:
-        provider = result.get("provider", "Unknown")
+        provider = result.get("provider", "unknown")
         response = result.get("response", "")
-        
-        # Truncate for display
-        display_text = response[:500] + "..." if len(response) > 500 else response
-        
-        panel = Panel(
-            Text(display_text, style=LIGHT_TEXT),
-            title=Text(f"🔷 {provider}", style=CYAN),
-            border_style=CYAN,
-            padding=(1, 2),
-        )
-        panels.append(panel)
-    
-    # Display side by side if possible
-    if len(panels) <= 2:
-        if len(panels) == 2:
-            cols = Columns(panels, equal=True, expand=True)
-            console.print(cols)
-        else:
-            console.print(panels[0])
-    else:
-        for panel in panels:
-            console.print(panel)
+        theme = DEFAULT_THEME.get_provider(provider)
+
+        # Render header line
+        header = Text()
+        header.append(f"{theme.abbreviation} ", style=f"bold {theme.accent}")
+        header.append("| ", style=f"dim {DEFAULT_THEME.palette.text_muted}")
+        header.append(f"[{provider}]", style=f"dim {DEFAULT_THEME.palette.text_dim}")
+        console.print(header)
+
+        # Render response body
+        renderer = StreamRenderer(theme, console)
+        renderer._first_line = False  # header already printed
+        renderer.feed(response)
+        renderer.finish()
+        console.print()
 
 
 def render_thinking(text: str) -> None:
     """Render thinking/processing output."""
-    panel = Panel(
-        Text(text, style=f"dim {LIGHT_TEXT}"),
-        title=Text("💭 Analyzing", style=VIOLET),
-        border_style=VIOLET,
-        padding=(1, 2),
-    )
-    console.print(panel)
-
-
-def render_error(text: str) -> None:
-    """Render error message."""
-    panel = Panel(
-        Text(text, style="bold #ff0055"),
-        title=Text("❌ Error", style="#ff0055"),
-        border_style="#ff0055",
-        padding=(1, 2),
-    )
-    console.print(panel)
+    palette = DEFAULT_THEME.palette
+    t = Text()
+    t.append("... ", style=f"dim {palette.spinner}")
+    t.append("| ", style=f"dim {palette.text_muted}")
+    t.append(text, style=f"dim {palette.text}")
+    console.print(t)

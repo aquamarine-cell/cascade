@@ -1,11 +1,31 @@
 """File operations plugin for Cascade."""
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
+
+from .base import BasePlugin
+from .registry import register_plugin
 
 
-class FileOpsPlugin:
+@register_plugin("file_ops")
+class FileOpsPlugin(BasePlugin):
     """Handle file reading and writing operations."""
+
+    @property
+    def name(self) -> str:
+        return "file_ops"
+
+    @property
+    def description(self) -> str:
+        return "Read, write, list, and append files"
+
+    def get_tools(self) -> dict[str, Any]:
+        return {
+            "read_file": self.read_file,
+            "write_file": self.write_file,
+            "list_files": self.list_files,
+            "append_file": self.append_file,
+        }
 
     @staticmethod
     def read_file(path: str) -> Optional[str]:

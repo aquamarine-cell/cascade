@@ -42,38 +42,99 @@ class ConfigManager:
                 "gemini": {
                     "enabled": False,
                     "api_key": "${GEMINI_API_KEY}",
-                    "model": "gemini-2.0-flash",
+                    "model": "gemini-3.1-pro-preview",
+                    "fast_model": "gemini-3-flash-preview",
                     "temperature": 0.7,
-                    "max_tokens": 2048,
                 },
                 "claude": {
                     "enabled": False,
                     "api_key": "${CLAUDE_API_KEY}",
-                    "model": "claude-3-5-sonnet-20241022",
+                    "model": "claude-opus-4-6",
+                    "fast_model": "claude-sonnet-4-6",
                     "temperature": 0.7,
-                    "max_tokens": 2048,
+                },
+                "openrouter": {
+                    "enabled": False,
+                    "api_key": "${OPENROUTER_API_KEY}",
+                    "model": "qwen/qwen3.5-35b-a3b",
+                    "temperature": 0.7,
+                },
+                "openai": {
+                    "enabled": False,
+                    "api_key": "${OPENAI_API_KEY}",
+                    "model": "gpt-5.3-codex",
+                    "temperature": 0.7,
                 },
             },
             "defaults": {
                 "provider": "gemini",
                 "theme": "deep-stream",
             },
+            "prompts": {
+                "use_default_system_prompt": True,
+                "include_design_language": True,
+                "design_md_path": "",
+            },
+            "hooks": [],
+            "tools": {
+                "reflection": True,
+                "file_ops": True,
+            },
+            "workflows": {
+                "verify": {
+                    "lint": "ruff check .",
+                    "test": "python -m pytest -x -q",
+                    "build": "",
+                    "audit": "",
+                },
+            },
+            "integrations": {
+                "shannon": {
+                    "path": "",
+                },
+            },
         }
         
         with open(self.config_path, "w") as f:
             yaml.dump(default_config, f, default_flow_style=False)
 
+    def apply_credential(self, provider_name: str, token: str) -> None:
+        """Auto-enable a provider using a detected CLI credential.
+
+        Only applies if the provider isn't already enabled with a resolved key.
+        """
+        providers = self.data.setdefault("providers", {})
+        entry = providers.setdefault(provider_name, {})
+
+        # Don't overwrite if already enabled with a real key
+        existing_key = self._resolve_env_var(entry.get("api_key", ""))
+        if entry.get("enabled") and existing_key:
+            return
+
+        # Default models per provider
+        default_models = {
+            "gemini": "gemini-3.1-pro-preview",
+            "claude": "claude-opus-4-6",
+            "openai": "gpt-5.3-codex",
+            "openrouter": "qwen/qwen3.5-35b-a3b",
+        }
+
+        entry["enabled"] = True
+        entry["api_key"] = token
+        entry.setdefault("model", default_models.get(provider_name, ""))
+        entry.setdefault("temperature", 0.7)
+
     def get_provider_config(self, provider_name: str) -> Optional[ProviderConfig]:
         """Get configuration for a specific provider."""
         provider_data = self.data.get("providers", {}).get(provider_name, {})
-        
+
         if not provider_data.get("enabled", False):
             return None
-        
+
         api_key = self._resolve_env_var(provider_data.get("api_key", ""))
         if not api_key:
             return None
-        
+
         return ProviderConfig(
             api_key=api_key,
             model=provider_data.get("model", ""),
@@ -98,6 +159,50 @@ class ConfigManager:
         """Get list of enabled provider names."""
         providers = self.data.get("providers", {})
         return [name for name, config in providers.items() if config.get("enabled", False)]
+
+    def get_prompt_config(self) -> Dict[str, Any]:
+        """Get prompt system configuration."""
+        defaults = {
+            "use_default_system_prompt": True,
+            "include_design_language": True,
+            "design_md_path": "",
+        }
+        config = self.data.get("prompts", {})
+        return {**defaults, **config} if config else defaults
+
+    def get_hooks_config(self) -> list:
+        """Get hooks configuration (list of hook definitions)."""
+        return self.data.get("hooks", [])
+
+    def get_tools_config(self) -> Dict[str, bool]:
+        """Get tools enable/disable configuration."""
+        defaults = {
+            "reflection": True,
+            "file_ops": True,
+        }
+        config = self.data.get("tools", {})
+        return {**defaults, **config} if config else defaults
+
+    def get_workflows_config(self) -> Dict[str, Any]:
+        """Get workflows configuration (verify commands, etc.)."""
+        defaults: Dict[str, Any] = {
+            "verify": {
+                "lint": "ruff check .",
+                "test": "python -m pytest -x -q",
+                "build": "",
+                "audit": "",
+            },
+        }
+        config = self.data.get("workflows", {})
+        return {**defaults, **config} if config else defaults
+
+    def get_integrations_config(self) -> Dict[str, Any]:
+        """Get integrations configuration."""
+        defaults = {
+            "shannon": {"path": ""},
+        }
+        config = self.data.get("integrations", {})
+        return {**defaults, **config} if config else defaults
 
     def save(self) -> None:
         """Save configuration to file."""

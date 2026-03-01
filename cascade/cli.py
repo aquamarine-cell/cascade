@@ -4,12 +4,30 @@ import click
 import sys
 from typing import Optional
 
+from .auth import detect_all, DetectedCredential
 from .config import ConfigManager
-from .providers import GeminiProvider, ClaudeProvider
+from .context import ProjectContext
+from .hooks import HookEvent, HookRunner, load_hooks_from_config
+from .prompts import build_default_prompt, PromptPipeline
+from .prompts.layers import (
+    PRIORITY_DEFAULT,
+    PRIORITY_DESIGN,
+    PRIORITY_PROJECT_SYSTEM,
+    PRIORITY_PROJECT_CONTEXT,
+    PRIORITY_USER_OVERRIDE,
+    PRIORITY_REPL_CONTEXT,
+)
+from .providers.registry import discover_providers, get_registry
+from .providers.response import ProviderResponse
+from .tools import build_tool_registry
 from .ui import render_header, render_footer, render_response, render_comparison
 from .ui.output import render_error, stream_response
 from .ui.theme import console, CYAN, VIOLET
 from .plugins import FileOpsPlugin
+from .agents.loader import load_agents_from_dict
+from .agents.runner import AgentRunner
+from .agents.workflow import load_workflows_from_dict, WorkflowRunner
+from .context.memory import ContextBuilder
 
 
 class CascadeApp:
@@ -17,17 +35,38 @@ class CascadeApp:
 
     def __init__(self):
         self.config = ConfigManager()
+        self.credentials = detect_all()
+        self._apply_detected_credentials()
         self.providers = {}
         self._init_providers()
         self.file_ops = FileOpsPlugin()
+        self.project = ProjectContext()
+        self.prompt_pipeline = self._build_prompt_pipeline()
+        self.hook_runner = self._build_hook_runner()
+        self.tool_registry = self._build_tool_registry()
+        self.context_builder = ContextBuilder()
+        self.last_response_meta: Optional[ProviderResponse] = None
+
+        # Agent & workflow system
+        self.agents = load_agents_from_dict(self.project.agents)
+        self.workflows = load_workflows_from_dict(
+            self.project.agents.get("workflows", {}),
+        )
+        self._agent_runner = AgentRunner(self)
+        self._workflow_runner = WorkflowRunner(
+            self._agent_runner, self.agents,
+        )
+
+    def _apply_detected_credentials(self) -> None:
+        """Auto-enable providers from detected CLI credentials."""
+        for cred in self.credentials:
+            self.config.apply_credential(cred.provider, cred.token)
 
     def _init_providers(self) -> None:
-        """Initialize enabled providers."""
-        provider_classes = {
-            "gemini": GeminiProvider,
-            "claude": ClaudeProvider,
-        }
-        
+        """Initialize enabled providers from the registry."""
+        discover_providers()
+        provider_classes = get_registry()
+
         for provider_name, provider_class in provider_classes.items():
             config = self.config.get_provider_config(provider_name)
             if config:
@@ -36,45 +75,160 @@ class CascadeApp:
                 except Exception as e:
                     console.print(f"Failed to initialize {provider_name}: {e}", style="dim red")
 
+    def _build_prompt_pipeline(self) -> PromptPipeline:
+        """Assemble the system prompt pipeline from config and project context."""
+        prompt_config = self.config.get_prompt_config()
+        pipeline = PromptPipeline()
+
+        if prompt_config.get("use_default_system_prompt", True):
+            default_prompt = build_default_prompt(
+                include_design_language=prompt_config.get("include_design_language", True),
+                design_md_path=prompt_config.get("design_md_path") or None,
+            )
+            pipeline = pipeline.add_layer("default", default_prompt, PRIORITY_DEFAULT)
+
+        if self.project.found:
+            if self.project.system_prompt:
+                pipeline = pipeline.add_layer(
+                    "project_system", self.project.system_prompt, PRIORITY_PROJECT_SYSTEM,
+                )
+            for name, content in self.project.context_files.items():
+                pipeline = pipeline.add_layer(
+                    f"project_context:{name}", content, PRIORITY_PROJECT_CONTEXT,
+                )
+
+        return pipeline
+
+    def _build_hook_runner(self) -> HookRunner:
+        """Load hooks from config."""
+        hooks_data = self.config.get_hooks_config()
+        hooks = load_hooks_from_config(hooks_data)
+        return HookRunner(hooks)
+
+    def _build_tool_registry(self) -> dict:
+        """Build tool registry from enabled plugins."""
+        tools_config = self.config.get_tools_config()
+
+        # Ensure plugins are loaded
+        from .plugins import get_plugin_registry
+        registry = build_tool_registry()
+
+        # Filter by tools config
+        filtered = {}
+        for tool_name, tool_def in registry.items():
+            # Check if the plugin that provides this tool is enabled
+            enabled = True
+            for plugin_name, is_enabled in tools_config.items():
+                if not is_enabled:
+                    # Check if this tool belongs to the disabled plugin
+                    plugin_registry = get_plugin_registry()
+                    if plugin_name in plugin_registry:
+                        plugin_tools = plugin_registry[plugin_name]().get_tools()
+                        if tool_name in plugin_tools:
+                            enabled = False
+                            break
+            if enabled:
+                filtered[tool_name] = tool_def
+
+        return filtered
+
     def get_provider(self, name: Optional[str] = None):
         """Get a provider by name or default."""
         provider_name = name or self.config.get_default_provider()
-        
+
         if provider_name not in self.providers:
             raise click.ClickException(
                 f"Provider '{provider_name}' not found or not enabled. "
                 f"Available: {list(self.providers.keys())}"
             )
-        
+
         return self.providers[provider_name]
 
-    def ask(self, prompt: str, provider: Optional[str] = None, system: Optional[str] = None, stream: bool = False) -> str:
-        """Ask a single question."""
+    def ask(
+        self,
+        prompt: str,
+        provider: Optional[str] = None,
+        system: Optional[str] = None,
+        stream: bool = False,
+        context_text: Optional[str] = None,
+    ) -> str:
+        """Ask a single question with full system prompt, tools, and hooks."""
         prov = self.get_provider(provider)
-        
-        if stream:
-            return stream_response(prov.stream(prompt, system), prov.name)
+
+        # Build the system prompt from pipeline
+        pipeline = self.prompt_pipeline
+        if context_text:
+            pipeline = pipeline.add_layer("repl_context", context_text, PRIORITY_REPL_CONTEXT)
+        if system:
+            pipeline = pipeline.add_layer("user_override", system, PRIORITY_USER_OVERRIDE)
+
+        final_system = pipeline.build() or None
+
+        # Run BEFORE_ASK hooks
+        self.hook_runner.run_hooks(HookEvent.BEFORE_ASK, context={
+            "prompt": prompt,
+            "provider": prov.name,
+        })
+
+        # Ask with or without tools
+        tool_log = []
+        if self.tool_registry and not stream:
+            response, tool_log = prov.ask_with_tools(
+                prompt, self.tool_registry, system=final_system,
+            )
+        elif stream:
+            response = stream_response(prov.stream(prompt, final_system), prov.name)
         else:
-            response = prov.ask(prompt, system)
+            response = prov.ask(prompt, final_system)
+
+        # Capture response metadata from provider
+        usage = prov.last_usage or (0, 0)
+        self.last_response_meta = ProviderResponse(
+            text=response,
+            input_tokens=usage[0],
+            output_tokens=usage[1],
+            model=prov.config.model,
+            provider=prov.name,
+        )
+
+        if not stream:
             render_response(response, provider=prov.name)
-            return response
+
+        # Run AFTER_RESPONSE hooks
+        self.hook_runner.run_hooks(HookEvent.AFTER_RESPONSE, context={
+            "response_length": str(len(response)),
+            "provider": prov.name,
+            "tool_calls": str(len(tool_log)),
+        })
+
+        return response
+
+    def run_agent(self, name: str, prompt: str) -> str:
+        """Run a named agent by name. Raises KeyError if not found."""
+        agent = self.agents[name]
+        return self._agent_runner.run(agent, prompt)
+
+    def run_workflow(self, name: str, prompt: str) -> str:
+        """Run a named workflow by name. Raises KeyError if not found."""
+        workflow = self.workflows[name]
+        return self._workflow_runner.run(workflow, prompt)
 
     def compare(self, prompt: str, providers: Optional[list[str]] = None) -> list[dict]:
         """Compare responses from multiple providers."""
         provider_names = providers or list(self.providers.keys())
-        
+
         if not provider_names:
             raise click.ClickException("No providers available for comparison")
-        
+
         results = []
         for provider_name in provider_names:
             if provider_name not in self.providers:
                 continue
-            
+
             prov = self.providers[provider_name]
             response = prov.compare(prompt)
             results.append(response)
-        
+
         render_comparison(results)
         return results
 
@@ -83,20 +237,20 @@ class CascadeApp:
         prov = self.get_provider(provider)
         render_header("CASCADE CHAT", f"Model: {prov.config.model}")
         console.print("\nType 'quit' or 'exit' to leave\n", style=f"dim {CYAN}")
-        
+
         messages = []
-        
+
         try:
             while True:
                 prompt = click.prompt(f"[{prov.name}]", default="", show_default=False)
-                
+
                 if prompt.lower() in ["quit", "exit"]:
                     console.print("Goodbye!", style=f"dim {VIOLET}")
                     break
-                
+
                 if not prompt.strip():
                     continue
-                
+
                 response = prov.ask(prompt)
                 render_response(response, provider=prov.name)
                 messages.append({"prompt": prompt, "response": response})
@@ -105,19 +259,17 @@ class CascadeApp:
 
     def analyze(self, file_path: str, prompt: Optional[str] = None, provider: Optional[str] = None) -> str:
         """Analyze a file with AI."""
-        # Read file
         content = self.file_ops.read_file(file_path)
         if content.startswith("Error"):
             raise click.ClickException(content)
-        
-        # Build analysis prompt
+
         analysis_prompt = prompt or "Analyze this code and provide insights:"
         full_prompt = f"{analysis_prompt}\n\n```\n{content}\n```"
-        
+
         prov = self.get_provider(provider)
         response = prov.ask(full_prompt)
         render_response(response, provider=prov.name)
-        
+
         return response
 
 
@@ -135,9 +287,8 @@ def get_app() -> CascadeApp:
 # CLI Commands
 @click.group()
 def cli():
-    """
-    ✨ CASCADE - Beautiful multi-model AI assistant
-    
+    """CASCADE - Multi-model AI assistant CLI.
+
     Ask questions, compare providers, chat interactively, analyze files.
     """
     pass
@@ -177,19 +328,18 @@ def compare(prompt, providers):
         sys.exit(1)
 
 
-@cli.command()
-@click.option("--provider", "-p", help="Provider to use")
-def chat(provider):
-    """Start interactive chat mode."""
-    app = get_app()
-    try:
-        app.chat(provider=provider)
-    except click.ClickException:
-        raise
-    except Exception as e:
-        render_error(str(e))
-        sys.exit(1)
-
+    @cli.command()
+    @click.option("--provider", "-p", help="Provider to use")
+    def chat(provider):
+        """Start interactive chat mode (TUI)."""
+        from .app import CascadeApp
+        
+        app = CascadeApp()
+        # Set provider in state if provided
+        if provider:
+            app.state.active_provider = provider
+        
+        app.run()
 
 @cli.command()
 @click.argument("file_path")
@@ -212,10 +362,107 @@ def config():
     """Show configuration."""
     app = get_app()
     config_path = app.config.config_path
-    
+
     console.print(f"Config file: {config_path}")
     console.print(f"Enabled providers: {app.config.get_enabled_providers()}")
     console.print(f"Default provider: {app.config.get_default_provider()}")
+
+
+@cli.command()
+def setup():
+    """Run the interactive setup wizard."""
+    from .setup_flow import SetupWizard
+
+    wizard = SetupWizard()
+    wizard.run()
+
+
+@cli.command(name="init")
+@click.argument("project_type", required=False, default=None)
+def init_project(project_type):
+    """Initialize a .cascade/ project directory."""
+    from pathlib import Path
+    from .agents.templates import detect_project_type, PROJECT_TYPES
+    from .agents.init import run_init
+
+    project_dir = Path(".").resolve()
+    detected = detect_project_type(project_dir)
+
+    console.print(f"\n[bold]CASCADE Init[/bold]", style=CYAN)
+    console.print(f"Project directory: {project_dir}\n", style="dim")
+
+    if project_type is None:
+        console.print(f"Detected project type: {detected}", style=f"bold {CYAN}")
+        console.print()
+        for i, pt in enumerate(PROJECT_TYPES, 1):
+            marker = " (detected)" if pt == detected else ""
+            console.print(f"  {i}. {pt}{marker}")
+        console.print()
+
+        try:
+            choice = input(f"Project type [{detected}]: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            choice = ""
+
+        if choice:
+            try:
+                idx = int(choice) - 1
+                if 0 <= idx < len(PROJECT_TYPES):
+                    project_type = PROJECT_TYPES[idx]
+                else:
+                    project_type = detected
+            except ValueError:
+                project_type = choice if choice in PROJECT_TYPES else detected
+        else:
+            project_type = detected
+
+    console.print(f"\nUsing template: {project_type}\n", style="dim")
+
+    # Feature toggles
+    features = {"system_prompt": True, "agents": True, "context": True}
+    for feat in features:
+        try:
+            answer = input(f"  Enable {feat}? [Y/n]: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            answer = ""
+        if answer in ("n", "no"):
+            features[feat] = False
+
+    console.print()
+    summary = run_init(
+        project_dir,
+        project_type,
+        print_fn=lambda msg: console.print(msg, style="dim"),
+        enable_system_prompt=features["system_prompt"],
+        enable_agents=features["agents"],
+        enable_context=features["context"],
+    )
+    console.print(f"\n{summary}\n", style=f"bold {CYAN}")
+
+
+@cli.command()
+@click.option("--limit", "-n", default=20, help="Number of sessions to show")
+@click.option("--search", "-s", default="", help="Search sessions by keyword")
+def history(limit, search):
+    """Show conversation history."""
+    from .history import HistoryDB
+
+    db = HistoryDB()
+    sessions = db.search_sessions(search, limit=limit) if search else db.list_sessions(limit=limit)
+
+    if not sessions:
+        console.print("No sessions found.", style="dim")
+        return
+
+    console.print(f"\nConversation history ({len(sessions)} sessions):\n", style=f"bold {CYAN}")
+    for s in sessions:
+        title = s["title"] or "(untitled)"
+        console.print(
+            f"  {s['id']}  {title}  [{s['provider']}]  {s['created_at'][:16]}",
+            style="dim",
+        )
+    console.print()
+    db.close()
 
 
 if __name__ == "__main__":
