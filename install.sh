@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="${CASCADE_REPO_URL:-https://github.com/aquamarine-cell/cascade.git}"
+REPO_URL="${CASCADE_REPO_URL:-https://github.com/Evangeline-Development-Company/cascade.git}"
 REF="${CASCADE_REF:-}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 

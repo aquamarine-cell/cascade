@@ -17,7 +17,7 @@ Beautiful multi-model AI code assistant CLI with Deep Stream aesthetics.
 
 ```bash
 # One-line install (latest main)
-curl -fsSL https://raw.githubusercontent.com/aquamarine-cell/cascade/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Evangeline-Development-Company/cascade/main/install.sh | bash
 
 # Verify
 cascade --help
@@ -25,12 +25,12 @@ cascade --help
 
 Optional: install a specific ref (tag/branch/commit):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/aquamarine-cell/cascade/main/install.sh | CASCADE_REF=v0.3.0 bash
+curl -fsSL https://raw.githubusercontent.com/Evangeline-Development-Company/cascade/main/install.sh | CASCADE_REF=v0.3.0 bash
 ```
 
 Local development install:
 ```bash
-git clone https://github.com/aquamarine-cell/cascade.git
+git clone https://github.com/Evangeline-Development-Company/cascade.git
 cd cascade
 pip install -e ".[dev]"
 ```
