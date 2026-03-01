@@ -16,13 +16,23 @@ Beautiful multi-model AI code assistant CLI with Deep Stream aesthetics.
 ## Installation
 
 ```bash
-# Clone and install
-git clone <repo>
-cd cascade
-pip install -e .
+# One-line install (latest main)
+curl -fsSL https://raw.githubusercontent.com/aquamarine-cell/cascade/main/install.sh | bash
 
 # Verify
 cascade --help
+```
+
+Optional: install a specific ref (tag/branch/commit):
+```bash
+curl -fsSL https://raw.githubusercontent.com/aquamarine-cell/cascade/main/install.sh | CASCADE_REF=v0.3.0 bash
+```
+
+Local development install:
+```bash
+git clone https://github.com/aquamarine-cell/cascade.git
+cd cascade
+pip install -e ".[dev]"
 ```
 
 ## Configuration
@@ -166,10 +176,10 @@ pip install -e ".[dev]"
 pytest tests/
 
 # Format code
-black cascade/ tests/
+ruff format cascade tests
 
 # Lint
-flake8 cascade/ tests/
+ruff check cascade tests
 ```
 
 ## Library Dependencies
