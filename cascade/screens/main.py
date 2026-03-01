@@ -20,6 +20,14 @@ from ..theme import PALETTE, MODE_CYCLE, MODES
 from ..commands import CommandHandler
 
 
+def summarize_user_prompt(prompt: str) -> str:
+    """Return a compact display string for pasted multi-line content."""
+    line_count = prompt.count("\n") + 1
+    if line_count >= 2:
+        return f"[pasted content 1 + {line_count - 1} lines]"
+    return prompt
+
+
 class MainScreen(Screen):
     """The core chat interface."""
 
@@ -97,7 +105,7 @@ class MainScreen(Screen):
 
         # Mount user message widget
         chat = self.query_one(ChatHistory)
-        chat.mount(MessageWidget("you", prompt))
+        chat.mount(MessageWidget("you", summarize_user_prompt(prompt)))
         chat.scroll_end(animate=False)
 
         # Kick off provider response in a worker thread
@@ -122,8 +130,11 @@ class MainScreen(Screen):
         chat.mount(self._stream_msg)
 
         provider_name = self._active_provider
+        def _worker() -> None:
+            self._provider_worker(prompt, provider_name)
+
         self.run_worker(
-            self._provider_worker(prompt, provider_name),
+            _worker,
             thread=True,
             exclusive=True,
         )
@@ -132,12 +143,14 @@ class MainScreen(Screen):
         """Run in a worker thread -- calls synchronous provider.stream()."""
         cli_app = self.app.cli_app
         if cli_app is None:
-            self.call_from_thread(self._on_stream_error, "No CLI app available")
+            self.app.call_from_thread(self._on_stream_error, "No CLI app available")
             return
 
         prov = cli_app.providers.get(provider_name)
         if prov is None:
-            self.call_from_thread(self._on_stream_error, f"Provider '{provider_name}' not available")
+            self.app.call_from_thread(
+                self._on_stream_error, f"Provider '{provider_name}' not available",
+            )
             return
 
         # Build system prompt
@@ -161,13 +174,13 @@ class MainScreen(Screen):
         try:
             for chunk in prov.stream(prompt, final_system):
                 full_response.append(chunk)
-                self.call_from_thread(self._on_stream_chunk, chunk)
+                self.app.call_from_thread(self._on_stream_chunk, chunk)
 
             response_text = "".join(full_response)
 
             # Get usage
             usage = prov.last_usage or (0, 0)
-            self.call_from_thread(
+            self.app.call_from_thread(
                 self._on_stream_done, provider_name, response_text, usage[0], usage[1],
             )
 
@@ -179,10 +192,10 @@ class MainScreen(Screen):
             })
 
         except Exception as e:
-            self.call_from_thread(self._on_stream_error, str(e))
+            self.app.call_from_thread(self._on_stream_error, str(e))
 
     def _on_stream_chunk(self, chunk: str) -> None:
-        """Called from worker thread via call_from_thread -- feed chunk to stream widget."""
+        """Called from worker thread via app.call_from_thread."""
         if hasattr(self, "_stream_msg"):
             self._stream_msg.feed(chunk)
             chat = self.query_one(ChatHistory)
