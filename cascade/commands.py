@@ -35,6 +35,7 @@ COMMANDS: tuple[CommandDef, ...] = (
     CommandDef("init", "/init [type]", "Initialize .cascade/ project config"),
     CommandDef("upload", "/upload [stop|status]", "Start drag-and-drop upload server"),
     CommandDef("context", "/context [clear]", "Show or clear uploaded context"),
+    CommandDef("login", "/login [provider]", "Sync provider auth from installed CLIs"),
     CommandDef("config", "/config reload", "Reload config from disk"),
     CommandDef("mark", "/mark [label]", "Insert a bookmark separator"),
     CommandDef("time", "/time", "Show current time"),
@@ -86,6 +87,7 @@ class CommandHandler:
             "init": self._cmd_init,
             "upload": self._cmd_upload,
             "context": self._cmd_context,
+            "login": self._cmd_login,
             "config": self._cmd_config,
             "mark": self._cmd_mark,
             "time": self._cmd_time,
@@ -524,6 +526,83 @@ class CommandHandler:
         for s in sources:
             lines.append(f"  [{s['type']}] {s['label']} ({s['size']} chars)")
         self._post_system("\n".join(lines))
+
+    def _cmd_login(self, args: list[str]) -> None:
+        """Sync provider credentials from installed CLI tools."""
+        cli_app = getattr(self.app, "cli_app", None)
+        if cli_app is None:
+            self.app.notify("No app available")
+            return
+
+        from .auth import detect_claude, detect_codex, detect_gemini
+
+        detectors = {
+            "gemini": (detect_gemini, "gemini auth login"),
+            "claude": (detect_claude, "claude login"),
+            "openai": (detect_codex, "codex login"),
+        }
+
+        if not args:
+            lines = ["Auth status:"]
+            for provider, (detect_fn, _hint) in detectors.items():
+                cred = detect_fn()
+                if cred:
+                    label = cred.source
+                    if cred.email:
+                        label += f" ({cred.email})"
+                    if cred.plan:
+                        label += f" [{cred.plan}]"
+                    lines.append(f"  {provider}: detected via {label}")
+                else:
+                    lines.append(f"  {provider}: not detected")
+            lines.append("")
+            lines.append("Use /login <provider> to sync detected CLI credentials.")
+            self._post_system("\n".join(lines))
+            return
+
+        provider = args[0].lower()
+        if provider not in detectors:
+            self._post_system("Usage: /login <gemini|claude|openai>")
+            return
+
+        detect_fn, login_hint = detectors[provider]
+        cred = detect_fn()
+        if cred is None:
+            self._post_system(
+                f"No {provider} CLI credentials found. "
+                f"Run `{login_hint}` in a shell, then retry /login {provider}."
+            )
+            return
+
+        cli_app.config.apply_credential(provider, cred.token, overwrite=True)
+        cli_app.config.save()
+
+        # Reinitialize providers and prompt pipeline so changes apply immediately.
+        cli_app._init_providers()
+        cli_app.prompt_pipeline = cli_app._build_prompt_pipeline()
+
+        try:
+            from .widgets.header import ProviderGhostTable
+            table = self.app.screen.query_one(ProviderGhostTable)
+            table._providers = cli_app.providers
+            table.refresh()
+        except Exception:
+            pass
+
+        def _do() -> str:
+            try:
+                prov = cli_app.get_provider(provider)
+            except Exception as e:
+                return f"{provider} credential synced, but provider is unavailable: {e}"
+            ok = prov.ping()
+            if ok:
+                return f"{provider} credential synced and verified."
+            return (
+                f"{provider} credential synced, but ping failed. "
+                f"Re-run `{login_hint}` and try again."
+            )
+
+        self._run_in_worker(_do, label=f"login:{provider}")
 
     def _cmd_config(self, args: list[str]) -> None:
         if not args or args[0].lower() != "reload":

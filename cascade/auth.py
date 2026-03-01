@@ -10,6 +10,7 @@ when setting up those CLI tools.
 """
 
 import json
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -78,6 +79,13 @@ def detect_gemini() -> Optional[DetectedCredential]:
     token = data.get("access_token", "")
     if not token:
         return None
+    expiry_date = data.get("expiry_date")
+    if isinstance(expiry_date, (int, float)):
+        # Gemini stores expiry_date as epoch milliseconds.
+        now_ms = int(time.time() * 1000)
+        # Add a one-minute skew so near-expired tokens are treated as expired.
+        if now_ms >= int(expiry_date) - 60_000:
+            return None
     # Extract email from id_token JWT
     email = ""
     id_token = data.get("id_token", "")

@@ -118,6 +118,18 @@ class TestDetectGemini:
             mock_path.home.return_value = tmp_path
             assert detect_gemini() is None
 
+    def test_returns_none_when_expired(self, tmp_path):
+        gemini_dir = tmp_path / ".gemini"
+        gemini_dir.mkdir()
+        (gemini_dir / "oauth_creds.json").write_text(json.dumps({
+            "access_token": "ya29.expired-token",
+            "expiry_date": 1,  # epoch ms in the past
+        }))
+
+        with patch("cascade.auth.Path") as mock_path:
+            mock_path.home.return_value = tmp_path
+            assert detect_gemini() is None
+
 
 class TestDetectCodex:
     def test_detects_codex_creds(self, tmp_path):

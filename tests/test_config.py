@@ -75,9 +75,23 @@ def test_apply_credential_does_not_overwrite_existing():
         manager.data["providers"]["gemini"]["enabled"] = True
         manager.data["providers"]["gemini"]["api_key"] = "my-real-key"
 
-        manager.apply_credential("gemini", "ya29.should-be-ignored")
+    manager.apply_credential("gemini", "ya29.should-be-ignored")
+    config = manager.get_provider_config("gemini")
+    assert config.api_key == "my-real-key"
+
+
+def test_apply_credential_overwrite_updates_existing():
+    """Test that apply_credential can overwrite when requested."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.yaml"
+        manager = ConfigManager(str(config_path))
+
+        manager.data["providers"]["gemini"]["enabled"] = True
+        manager.data["providers"]["gemini"]["api_key"] = "old-token"
+
+        manager.apply_credential("gemini", "new-token", overwrite=True)
         config = manager.get_provider_config("gemini")
-        assert config.api_key == "my-real-key"
+        assert config.api_key == "new-token"
 
 
 def test_apply_credential_new_provider():

@@ -98,10 +98,11 @@ class ConfigManager:
         with open(self.config_path, "w") as f:
             yaml.dump(default_config, f, default_flow_style=False)
 
-    def apply_credential(self, provider_name: str, token: str) -> None:
+    def apply_credential(self, provider_name: str, token: str, overwrite: bool = False) -> None:
         """Auto-enable a provider using a detected CLI credential.
 
-        Only applies if the provider isn't already enabled with a resolved key.
+        Only applies if the provider isn't already enabled with a resolved key,
+        unless overwrite=True.
         """
         providers = self.data.setdefault("providers", {})
         entry = providers.setdefault(provider_name, {})
@@ -109,7 +110,8 @@ class ConfigManager:
         # Don't overwrite if already enabled with a real key
         existing_key = self._resolve_env_var(entry.get("api_key", ""))
         if entry.get("enabled") and existing_key:
-            return
+            if not overwrite:
+                return
 
         # Default models per provider
         default_models = {

@@ -255,7 +255,7 @@ class CascadeREPL:
                     f"Authenticated with {result.provider} via {result.method}.",
                     style=f"dim {CYAN}",
                 )
-                self.app.config.apply_credential(result.provider, result.token)
+                self.app.config.apply_credential(result.provider, result.token, overwrite=True)
                 self.app.config.save()
 
     def run(self):

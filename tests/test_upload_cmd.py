@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+from cascade.auth import DetectedCredential
 from cascade.context.memory import ContextBuilder
 from cascade.commands import CommandHandler, COMMANDS
 
@@ -20,6 +21,10 @@ class TestUploadCommandDef:
     def test_init_command_registered(self):
         names = [c.name for c in COMMANDS]
         assert "init" in names
+
+    def test_login_command_registered(self):
+        names = [c.name for c in COMMANDS]
+        assert "login" in names
 
 
 class TestContextCommand:
@@ -211,3 +216,82 @@ class TestConfigReloadCommand:
         assert "Config reloaded." in posted[-1]
         assert "Added: new" in posted[-1]
         assert "Removed: old" in posted[-1]
+
+
+class TestLoginCommand:
+    """Tests for /login command in TUI mode."""
+
+    def _make_handler(self):
+        app = MagicMock()
+        app.state.provider_tokens = {}
+        app.screen = MagicMock()
+
+        cli_app = MagicMock()
+        cli_app.config = MagicMock()
+        cli_app.providers = {"gemini": MagicMock()}
+        cli_app._init_providers = MagicMock()
+        cli_app._build_prompt_pipeline = MagicMock(return_value="pipeline")
+        prov = MagicMock()
+        prov.ping.return_value = True
+        cli_app.get_provider = MagicMock(return_value=prov)
+
+        app.cli_app = cli_app
+        handler = CommandHandler(app)
+        posted = []
+        handler._post_system = lambda msg: posted.append(msg)
+        handler._run_in_worker = lambda fn, label="": posted.append(fn())
+        return handler, cli_app, posted
+
+    @patch("cascade.auth.detect_codex")
+    @patch("cascade.auth.detect_claude")
+    @patch("cascade.auth.detect_gemini")
+    def test_login_status(self, mock_gemini, mock_claude, mock_codex):
+        handler, cli_app, posted = self._make_handler()
+        mock_gemini.return_value = DetectedCredential(
+            provider="gemini",
+            source="Gemini CLI",
+            token="ya29.test",
+            email="user@gmail.com",
+            plan="Google One AI Pro",
+        )
+        mock_claude.return_value = None
+        mock_codex.return_value = None
+
+        handler._cmd_login([])
+        assert posted
+        assert "Auth status:" in posted[-1]
+        assert "gemini: detected" in posted[-1]
+
+    def test_login_usage(self):
+        handler, cli_app, posted = self._make_handler()
+        handler._cmd_login(["bad-provider"])
+        assert "Usage: /login <gemini|claude|openai>" in posted[-1]
+
+    @patch("cascade.auth.detect_gemini")
+    def test_login_missing_credential(self, mock_gemini):
+        handler, cli_app, posted = self._make_handler()
+        mock_gemini.return_value = None
+
+        handler._cmd_login(["gemini"])
+        assert "No gemini CLI credentials found." in posted[-1]
+
+    @patch("cascade.auth.detect_gemini")
+    def test_login_syncs_and_verifies(self, mock_gemini):
+        handler, cli_app, posted = self._make_handler()
+        mock_gemini.return_value = DetectedCredential(
+            provider="gemini",
+            source="Gemini CLI",
+            token="ya29.new",
+            email="",
+            plan="",
+        )
+
+        handler._cmd_login(["gemini"])
+
+        cli_app.config.apply_credential.assert_called_once_with(
+            "gemini", "ya29.new", overwrite=True,
+        )
+        cli_app.config.save.assert_called_once()
+        cli_app._init_providers.assert_called_once()
+        cli_app._build_prompt_pipeline.assert_called_once()
+        assert "synced and verified" in posted[-1]
