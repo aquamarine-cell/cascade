@@ -264,7 +264,6 @@ class CommandHandler:
         """
         try:
             from .widgets.message import ChatHistory, ThinkingIndicator
-            from .widgets.stream_message import StreamMessage
 
             chat = self.app.screen.query_one(ChatHistory)
 
@@ -540,8 +539,11 @@ class CommandHandler:
         old_providers = set(cli_app.providers.keys())
         cli_app.config = type(cli_app.config)()
 
-        # Re-detect credentials and re-init providers
-        cli_app.credentials = cli_app._apply_detected_credentials() or []
+        # Re-detect credentials and re-init providers.
+        # _apply_detected_credentials mutates config and returns None.
+        from .auth import detect_all
+        cli_app.credentials = detect_all()
+        cli_app._apply_detected_credentials()
         cli_app._init_providers()
 
         # Rebuild prompt pipeline

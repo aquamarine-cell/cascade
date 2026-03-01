@@ -32,11 +32,18 @@ def _check_deps() -> None:
 class FileUploaderServer:
     """Lightweight web server for drag-and-drop file uploads."""
 
-    def __init__(self, context_builder: ContextBuilder, host: str = "0.0.0.0", port: int = 9222):
+    def __init__(
+        self,
+        context_builder: ContextBuilder,
+        host: str = "0.0.0.0",
+        port: int = 9222,
+        max_upload_bytes: int = 5 * 1024 * 1024,
+    ):
         _check_deps()
         self.context_builder = context_builder
         self.host = host
         self.port = port
+        self.max_upload_bytes = max_upload_bytes
         self._thread: Optional[threading.Thread] = None
         self._server = None
 
@@ -61,6 +68,14 @@ class FileUploaderServer:
         try:
             data = await upload.read()
             filename = upload.filename or "untitled"
+            if len(data) > self.max_upload_bytes:
+                return JSONResponse(
+                    {
+                        "ok": False,
+                        "error": f"File exceeds upload limit ({self.max_upload_bytes} bytes)",
+                    },
+                    status_code=413,
+                )
 
             # Detect if binary (image) or text
             try:

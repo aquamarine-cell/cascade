@@ -2,7 +2,7 @@
 
 Uses the 'ansi_shadow' font (same style as the Gemini CLI) with a
 left-to-right gradient from cyan -> purple -> pink. Falls back to
-a simple text banner if pyfiglet is unavailable.
+a built-in block-style banner if pyfiglet is unavailable.
 """
 
 import logging
@@ -26,6 +26,15 @@ GRADIENT = [
 
 # Preferred figlet font (Gemini CLI style)
 FONT = "ansi_shadow"
+
+# Built-in fallback keeps the UI readable even when pyfiglet is not installed.
+_FALLBACK_CASCADE = [
+    " ██████   █████   ███████  ██████   █████  ██████  ███████ ",
+    "██      ██   ██  ██      ██      ██   ██ ██   ██ ██      ",
+    "██      ███████  ███████ ██      ███████ ██   ██ █████   ",
+    "██      ██   ██       ██ ██      ██   ██ ██   ██ ██      ",
+    " ██████ ██   ██  ███████  ██████ ██   ██ ██████  ███████ ",
+]
 
 
 def _lerp_color(
@@ -55,16 +64,22 @@ def _lerp_color(
 def _generate_figlet(word: str) -> list[str]:
     """Generate ASCII art lines using pyfiglet, with fallback."""
     if not _HAS_PYFIGLET:
-        _log.warning("pyfiglet not installed -- falling back to plain text banner")
+        _log.warning("pyfiglet not installed -- using built-in fallback banner")
+        if word.upper() == "CASCADE":
+            return _FALLBACK_CASCADE
         return [f"  {word}  "]
     try:
         raw = pyfiglet.figlet_format(word, font=FONT)
         lines = raw.rstrip("\n").split("\n")
         if lines and any(line.strip() for line in lines):
             return lines
+        if word.upper() == "CASCADE":
+            return _FALLBACK_CASCADE
         return [f"  {word}  "]
     except Exception as exc:
         _log.warning("pyfiglet rendering failed: %s", exc)
+        if word.upper() == "CASCADE":
+            return _FALLBACK_CASCADE
         return [f"  {word}  "]
 
 

@@ -88,3 +88,20 @@ def test_multiple_uploads(client):
             files={"file": (f"file{i}.txt", f"content {i}".encode(), "text/plain")},
         )
     assert cb.source_count == 3
+
+
+def test_upload_file_too_large():
+    cb = ContextBuilder()
+    server = FileUploaderServer(cb, max_upload_bytes=10)
+    tc = TestClient(server.app)
+
+    resp = tc.post(
+        "/upload",
+        files={"file": ("big.txt", b"0123456789ABCDEF", "text/plain")},
+    )
+
+    assert resp.status_code == 413
+    data = resp.json()
+    assert data["ok"] is False
+    assert "exceeds upload limit" in data["error"]
+    assert cb.source_count == 0

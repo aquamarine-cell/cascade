@@ -4,6 +4,7 @@ These use the active provider directly -- no named agent required.
 """
 
 import subprocess
+import shlex
 from typing import Optional, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -105,6 +106,8 @@ def cmd_review(
     _print = print_fn or (lambda _s: None)
 
     diff_cmd = f"git diff {base_ref}" if base_ref else "git diff"
+    if base_ref:
+        diff_cmd = f"git diff {shlex.quote(base_ref)}"
     _print(f"Running: {diff_cmd}")
     diff_output, rc = _run_cmd(diff_cmd)
 
@@ -145,7 +148,7 @@ def cmd_checkpoint(
     # Stage all and commit
     _run_cmd("git add -A")
     commit_msg = f"checkpoint: {label}"
-    commit_output, commit_rc = _run_cmd(f'git commit -m "{commit_msg}"')
+    commit_output, commit_rc = _run_cmd(f"git commit -m {shlex.quote(commit_msg)}")
 
     if commit_rc != 0:
         return f"Commit failed: {commit_output}"

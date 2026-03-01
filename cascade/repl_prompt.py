@@ -1,6 +1,5 @@
 """prompt_toolkit REPL with gutter rendering, mode cycling, and floating input."""
 
-import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -14,7 +13,6 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
 
-from .auth import detect_all
 from .cli import CascadeApp
 from .context.memory import ContextBuilder
 from .history import HistoryDB
@@ -194,13 +192,14 @@ class CascadePromptREPL:
         summary = f"{provider_count} provider{'s' if provider_count != 1 else ''} active"
 
         # 1. Banner
-        render_banner(version=__version__, provider_summary=summary)
+        console.print(render_banner())
+        console.print(f"  v{__version__} · {summary}", style="dim")
 
         # 2. Ghost table
         render_status_table(self.app.providers, self.current_provider)
 
         # 3. Help hint
-        console.print(f"  /model to switch \u00b7 /help for commands", style=f"dim {palette.text_dim}")
+        console.print("  /model to switch \u00b7 /help for commands", style=f"dim {palette.text_dim}")
         console.print()
 
     def _print_exit_summary(self) -> None:
@@ -269,7 +268,7 @@ class CascadePromptREPL:
 
     def list_providers(self) -> None:
         palette = DEFAULT_THEME.palette
-        console.print(f"\nAvailable providers:", style=f"bold {palette.inline_code}")
+        console.print("\nAvailable providers:", style=f"bold {palette.inline_code}")
         for name in self.app.providers.keys():
             theme = DEFAULT_THEME.get_provider(name)
             status = "[active]" if name == self.current_provider else "       "
@@ -290,7 +289,7 @@ class CascadePromptREPL:
             console.print("No sessions found.", style="dim")
             return
         palette = DEFAULT_THEME.palette
-        console.print(f"\nRecent sessions:", style=f"bold {palette.inline_code}")
+        console.print("\nRecent sessions:", style=f"bold {palette.inline_code}")
         for s in sessions:
             title = s["title"] or "(untitled)"
             console.print(

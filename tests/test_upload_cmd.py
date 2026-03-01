@@ -1,6 +1,5 @@
 """Tests for /upload and /context command handlers."""
 
-import pytest
 from unittest.mock import MagicMock, patch
 
 from cascade.context.memory import ContextBuilder
@@ -166,3 +165,49 @@ class TestInitCommand:
         result = captured[0]()
         assert "general" in result
         assert (tmp_path / ".cascade").is_dir()
+
+
+class TestConfigReloadCommand:
+    """Tests for /config reload behavior."""
+
+    class _DummyConfig:
+        def __init__(self):
+            self.data = {}
+
+    def _make_handler(self):
+        app = MagicMock()
+        app.state.provider_tokens = {}
+        app.screen = MagicMock()
+
+        cli_app = MagicMock()
+        cli_app.providers = {"old": MagicMock()}
+        cli_app.config = self._DummyConfig()
+        cli_app._apply_detected_credentials = MagicMock()
+        cli_app._build_prompt_pipeline = MagicMock(return_value="pipeline")
+
+        def _init():
+            cli_app.providers = {"new": MagicMock()}
+
+        cli_app._init_providers = MagicMock(side_effect=_init)
+
+        app.cli_app = cli_app
+        handler = CommandHandler(app)
+        posted = []
+        handler._post_system = lambda msg: posted.append(msg)
+        return handler, cli_app, posted
+
+    @patch("cascade.auth.detect_all")
+    def test_config_reload_refreshes_credentials_and_provider_set(self, mock_detect):
+        mock_detect.return_value = ["cred"]
+        handler, cli_app, posted = self._make_handler()
+
+        handler._cmd_config(["reload"])
+
+        assert cli_app.credentials == ["cred"]
+        cli_app._apply_detected_credentials.assert_called_once()
+        cli_app._init_providers.assert_called_once()
+        assert set(cli_app.providers.keys()) == {"new"}
+        assert posted
+        assert "Config reloaded." in posted[-1]
+        assert "Added: new" in posted[-1]
+        assert "Removed: old" in posted[-1]

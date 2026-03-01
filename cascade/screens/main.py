@@ -5,14 +5,11 @@ Bridges to synchronous provider.stream() via run_worker(thread=True).
 """
 
 import datetime
-import time
 
 from rich.text import Text
 from textual.screen import Screen
 from textual.app import ComposeResult
-from textual.containers import Vertical
 from textual.widgets import Input, Static
-from textual.worker import Worker, WorkerState
 
 from ..widgets.header import WelcomeHeader, ProviderGhostTable
 from ..widgets.message import ChatHistory, MessageWidget, ThinkingIndicator
@@ -20,7 +17,6 @@ from ..widgets.input_frame import InputFrame
 from ..widgets.status_bar import StatusBar
 from ..widgets.stream_message import StreamMessage
 from ..theme import PALETTE, MODE_CYCLE, MODES
-from ..state import ProviderChanged, TokensUpdated, StreamChunk
 from ..commands import CommandHandler
 
 
@@ -155,7 +151,8 @@ class MainScreen(Screen):
         final_system = pipeline.build() or None
 
         # Run hooks
-        cli_app.hook_runner.run_hooks("before_ask", context={
+        from ..hooks import HookEvent
+        cli_app.hook_runner.run_hooks(HookEvent.BEFORE_ASK, context={
             "prompt": prompt,
             "provider": provider_name,
         })
@@ -175,7 +172,7 @@ class MainScreen(Screen):
             )
 
             # Run after hooks
-            cli_app.hook_runner.run_hooks("after_response", context={
+            cli_app.hook_runner.run_hooks(HookEvent.AFTER_RESPONSE, context={
                 "response_length": str(len(response_text)),
                 "provider": provider_name,
                 "tool_calls": "0",

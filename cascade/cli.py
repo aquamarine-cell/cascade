@@ -4,14 +4,13 @@ import click
 import sys
 from typing import Optional
 
-from .auth import detect_all, DetectedCredential
+from .auth import detect_all
 from .config import ConfigManager
 from .context import ProjectContext
 from .hooks import HookEvent, HookRunner, load_hooks_from_config
 from .prompts import build_default_prompt, PromptPipeline
 from .prompts.layers import (
     PRIORITY_DEFAULT,
-    PRIORITY_DESIGN,
     PRIORITY_PROJECT_SYSTEM,
     PRIORITY_PROJECT_CONTEXT,
     PRIORITY_USER_OVERRIDE,
@@ -20,7 +19,7 @@ from .prompts.layers import (
 from .providers.registry import discover_providers, get_registry
 from .providers.response import ProviderResponse
 from .tools import build_tool_registry
-from .ui import render_header, render_footer, render_response, render_comparison
+from .ui import render_header, render_response, render_comparison
 from .ui.output import render_error, stream_response
 from .ui.theme import console, CYAN, VIOLET
 from .plugins import FileOpsPlugin
@@ -64,6 +63,8 @@ class CascadeApp:
 
     def _init_providers(self) -> None:
         """Initialize enabled providers from the registry."""
+        # Rebuild from scratch so config reload drops disabled providers.
+        self.providers = {}
         discover_providers()
         provider_classes = get_registry()
 
@@ -388,7 +389,7 @@ def init_project(project_type):
     project_dir = Path(".").resolve()
     detected = detect_project_type(project_dir)
 
-    console.print(f"\n[bold]CASCADE Init[/bold]", style=CYAN)
+    console.print("\n[bold]CASCADE Init[/bold]", style=CYAN)
     console.print(f"Project directory: {project_dir}\n", style="dim")
 
     if project_type is None:
