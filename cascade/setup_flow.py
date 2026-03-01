@@ -3,7 +3,7 @@
 import os
 from typing import Optional
 
-from .auth import detect_all, format_auth_summary
+from .auth import detect_all
 from .config import ConfigManager
 from .providers.base import ProviderConfig
 from .providers.registry import discover_providers, get_registry

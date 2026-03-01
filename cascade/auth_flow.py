@@ -15,7 +15,6 @@ import shutil
 import time
 import webbrowser
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional
 from urllib.parse import urlencode
 from urllib.request import urlopen, Request
@@ -77,7 +76,7 @@ def login(provider: str) -> Optional[AuthResult]:
 
 def show_auth_status() -> None:
     """Display authentication status for all providers."""
-    console.print(f"\n  Auth Status:", style=f"bold {CYAN}")
+    console.print("\n  Auth Status:", style=f"bold {CYAN}")
 
     providers_status = [
         ("gemini", detect_gemini, "Gemini CLI"),
@@ -118,7 +117,7 @@ def login_google() -> Optional[AuthResult]:
     # Check for existing CLI credentials first
     cred = detect_gemini()
     if cred:
-        console.print(f"  Gemini CLI credentials detected.", style=f"dim {CYAN}")
+        console.print("  Gemini CLI credentials detected.", style=f"dim {CYAN}")
         answer = _prompt("  Use existing credentials? [Y/n]: ", default="y")
         if answer.lower() in ("y", "yes", ""):
             _store.save("gemini", {
@@ -194,7 +193,7 @@ def login_anthropic() -> Optional[AuthResult]:
     # Check CLI credentials
     cred = detect_claude()
     if cred:
-        label = f"Claude Code CLI"
+        label = "Claude Code CLI"
         if cred.plan:
             label += f" [{cred.plan}]"
         console.print(f"  {label} credentials detected.", style=f"dim {CYAN}")

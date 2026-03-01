@@ -3,7 +3,6 @@
 from cascade.ui.theme import (
     ColorPalette,
     ProviderTheme,
-    CascadeTheme,
     DEFAULT_THEME,
     PROVIDER_THEMES,
     CYAN,

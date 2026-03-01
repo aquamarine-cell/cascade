@@ -1,6 +1,6 @@
 """Tests for the provider registry system."""
 
-from cascade.providers.base import BaseProvider, ProviderConfig
+from cascade.providers.base import BaseProvider
 from cascade.providers.registry import (
     register_provider,
     discover_providers,

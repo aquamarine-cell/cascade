@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from cascade.prompts.default import (
-    DEFAULT_IDENTITY,
     build_default_prompt,
     _find_design_md,
 )

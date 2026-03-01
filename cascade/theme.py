@@ -4,7 +4,7 @@ All hex values live here. Widgets never hardcode colors.
 """
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict
 
 
 # ---------------------------------------------------------------------------

@@ -3,14 +3,13 @@
 Gets providers, config, hooks, tools for free via the CLI app.
 """
 
-from pathlib import Path
 
 from textual.app import App
 from textual.binding import Binding
 
 from .history import HistoryDB
 from .state import CascadeState
-from .theme import PALETTE, MODE_CYCLE, MODES
+from .theme import MODES
 
 
 class CascadeTUI(App):

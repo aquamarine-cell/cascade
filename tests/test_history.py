@@ -1,7 +1,5 @@
 """Tests for SQLite conversation history."""
 
-import os
-import tempfile
 
 import pytest
 

@@ -8,12 +8,12 @@ ThinkingIndicator -- braille spinner during provider processing
 import re
 
 from rich.text import Text
-from textual.containers import VerticalScroll, Horizontal
+from textual.containers import VerticalScroll
 from textual.widget import Widget
 from textual.app import ComposeResult
 from textual.widgets import Static
 
-from ..theme import PALETTE, get_accent, get_abbreviation, get_provider_theme
+from ..theme import PALETTE, get_accent, get_abbreviation
 
 
 # ---------------------------------------------------------------------------

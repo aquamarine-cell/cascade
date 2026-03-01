@@ -1,6 +1,5 @@
 """Tests for plugin system."""
 
-import pytest
 import tempfile
 from pathlib import Path
 from cascade.plugins import FileOpsPlugin

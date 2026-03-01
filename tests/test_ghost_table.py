@@ -1,11 +1,8 @@
 """Tests for the ghost table provider display."""
 
-from io import StringIO
 from unittest.mock import MagicMock
-from rich.console import Console
 
 from cascade.ui.ghost_table import render_ghost_table
-from cascade.ui.theme import DEFAULT_THEME
 from cascade.providers.base import ProviderConfig
 
 

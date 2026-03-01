@@ -1,7 +1,6 @@
 """Tests for Shannon integration module."""
 
 import os
-import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 

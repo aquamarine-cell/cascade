@@ -9,11 +9,10 @@ Autocomplete dropdown appears when typing slash commands.
 from rich.text import Text
 from textual.widget import Widget
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
 from textual.widgets import Input, Static, Label
 from textual.reactive import reactive
 
-from ..theme import PALETTE, MODES, get_accent, get_provider_theme
+from ..theme import PALETTE, MODES, get_accent
 from ..commands import get_matching_commands
 from .autocomplete import AutocompleteDropdown
 

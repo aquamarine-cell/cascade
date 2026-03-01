@@ -1,6 +1,6 @@
 """Tests for the REPL modules."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from cascade.repl import CascadeREPL
 

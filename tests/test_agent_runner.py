@@ -1,8 +1,7 @@
 """Tests for AgentRunner -- context manager safety, tool filtering."""
 
 import pytest
-from unittest.mock import MagicMock, patch
-from dataclasses import dataclass
+from unittest.mock import MagicMock
 
 from cascade.agents.schema import AgentDef
 from cascade.agents.runner import AgentRunner

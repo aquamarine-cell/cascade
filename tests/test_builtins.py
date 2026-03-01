@@ -1,6 +1,5 @@
 """Tests for built-in agent commands (verify, review, checkpoint)."""
 
-import pytest
 from unittest.mock import MagicMock, patch
 
 from cascade.agents.builtins import _run_cmd, cmd_verify, cmd_review, cmd_checkpoint

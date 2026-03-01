@@ -4,10 +4,8 @@ Hidden after the first user message is sent.
 """
 
 from rich.text import Text
-from rich.table import Table
 from textual.widget import Widget
 from textual.app import ComposeResult
-from textual.containers import Vertical
 from textual.widgets import Static
 
 from ..theme import PALETTE, PROVIDERS, get_provider_theme

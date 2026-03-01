@@ -1,6 +1,5 @@
 """Tests for configuration system."""
 
-import pytest
 import tempfile
 from pathlib import Path
 from cascade.config import ConfigManager

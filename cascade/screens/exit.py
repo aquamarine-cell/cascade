@@ -8,13 +8,12 @@ Any key dismisses and exits the application.
 from rich.text import Text
 from textual.screen import Screen
 from textual.app import ComposeResult
-from textual.containers import Center, Middle, Vertical
+from textual.containers import Center, Middle
 from textual.widgets import Static
 from textual.binding import Binding
 
 from ..widgets.odometer import OdometerCounter
-from ..widgets.status_bar import StatusBar
-from ..theme import PALETTE, PROVIDERS, get_accent
+from ..theme import PALETTE, get_accent
 
 
 def _fmt(n: int) -> str:

@@ -1,7 +1,5 @@
 """Tests for cascade.agents.templates and cascade.agents.init."""
 
-import pytest
-from pathlib import Path
 
 from cascade.agents.templates import detect_project_type, get_template, PROJECT_TYPES
 from cascade.agents.init import run_init

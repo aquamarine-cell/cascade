@@ -182,5 +182,5 @@ class ClaudeProvider(BaseProvider):
         """Cleanup HTTP client."""
         try:
             self.client.close()
-        except:
+        except Exception:
             pass

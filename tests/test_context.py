@@ -1,6 +1,5 @@
 """Tests for project context loading."""
 
-import os
 
 from cascade.context.project import ProjectContext
 

@@ -7,11 +7,9 @@ Rendered as a floating overlay above the input frame.
 from rich.text import Text
 from textual.widget import Widget
 from textual.widgets import Static
-from textual.app import ComposeResult
-from textual.containers import Vertical
 
-from ..theme import PALETTE, get_accent
-from ..commands import CommandDef, get_matching_commands
+from ..theme import PALETTE
+from ..commands import CommandDef
 
 
 class CommandSuggestion(Static):

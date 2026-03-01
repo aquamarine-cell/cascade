@@ -8,13 +8,12 @@ Manages launching Shannon from within the Cascade REPL, including:
 """
 
 import os
-import shutil
 import subprocess
 import threading
 from pathlib import Path
 from typing import Optional, Callable
 
-from ..ui.theme import console, CYAN
+from ..ui.theme import console
 
 
 _DEFAULT_PATHS = [

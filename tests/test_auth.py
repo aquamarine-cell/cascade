@@ -1,10 +1,8 @@
 """Tests for CLI credential detection (cascade.auth)."""
 
 import json
-from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 from cascade.auth import (
     DetectedCredential,

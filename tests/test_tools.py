@@ -2,9 +2,8 @@
 
 import json
 
-import pytest
 
-from cascade.tools.schema import ToolDef, callable_to_tool_def, _annotation_to_schema
+from cascade.tools.schema import callable_to_tool_def, _annotation_to_schema
 from cascade.tools.executor import ToolExecutor
 from cascade.tools.reflection import (
     reflect,

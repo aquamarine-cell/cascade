@@ -9,7 +9,7 @@ from pathlib import Path
 
 from prompt_toolkit.formatted_text import HTML
 
-from .theme import DEFAULT_THEME, PROVIDER_THEMES
+from .theme import PROVIDER_THEMES
 
 
 def _git_branch() -> str:

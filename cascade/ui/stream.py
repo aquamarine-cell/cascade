@@ -6,15 +6,13 @@ the code_block container.
 """
 
 from enum import Enum, auto
-from typing import Optional
 
 from rich.console import Console
-from rich.text import Text
 
 from .code_block import render_code_container
 from .gutter import render_gutter_line
 from .markdown import render_markdown_line
-from .theme import DEFAULT_THEME, ProviderTheme
+from .theme import ProviderTheme
 
 
 class _State(Enum):

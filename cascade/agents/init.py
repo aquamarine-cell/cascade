@@ -9,7 +9,7 @@ from typing import Callable, Optional
 
 import yaml
 
-from .templates import detect_project_type, get_template
+from .templates import get_template
 
 
 def run_init(

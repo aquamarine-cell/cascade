@@ -11,8 +11,7 @@ from textual.widget import Widget
 from textual.app import ComposeResult
 from textual.widgets import Static
 
-from ..theme import PALETTE, get_accent, get_abbreviation
-from .message import render_content, GutterLabel, MessageBody
+from .message import render_content, GutterLabel
 from .code_block import CodeBlock
 
 

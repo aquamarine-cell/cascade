@@ -7,7 +7,6 @@ Tracks approximate token count to avoid exceeding provider limits.
 import base64
 import mimetypes
 from pathlib import Path
-from typing import Optional
 
 
 # Rough approximation: 1 token ~= 4 characters for English text

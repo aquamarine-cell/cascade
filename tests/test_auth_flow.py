@@ -2,10 +2,8 @@
 
 import json
 import time
-from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import patch
 
-import pytest
 
 from cascade.auth import DetectedCredential
 from cascade.auth_store import TokenStore
@@ -85,7 +83,7 @@ class TestLoginDispatcher:
     @patch("cascade.auth_flow.login_anthropic")
     def test_routes_claude(self, mock_login):
         mock_login.return_value = AuthResult("claude", "tok", "", "cli_detected")
-        result = login("claude")
+        login("claude")
         mock_login.assert_called_once()
 
     def test_unknown_provider(self):

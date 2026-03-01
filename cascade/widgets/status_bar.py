@@ -98,7 +98,7 @@ class StatusBar(Static):
         right = Text()
         for name, ptheme in PROVIDERS.items():
             count = self._provider_tokens.get(name, 0)
-            right.append(f" \u25cf", style=ptheme.accent)
+            right.append(" \u25cf", style=ptheme.accent)
             right.append(f" {_fmt(count)}", style=f"dim {PALETTE.text_dim}")
 
         # Pad between left and right

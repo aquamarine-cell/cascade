@@ -1,9 +1,7 @@
 """Interactive REPL mode for Cascade - the main entry point."""
 
-import readline
 import time
 import uuid
-from typing import Optional
 
 from .cli import CascadeApp
 from .history import HistoryDB

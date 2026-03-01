@@ -7,8 +7,6 @@ from typing import Iterator
 
 from rich.text import Text
 
-from .gutter import render_response_block
-from .markdown import render_markdown_line
 from .stream import StreamRenderer
 from .theme import DEFAULT_THEME, console
 

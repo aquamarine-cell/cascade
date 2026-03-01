@@ -1,6 +1,5 @@
 """Tests for provider system."""
 
-import pytest
 from cascade.providers.base import BaseProvider, ProviderConfig
 
 
@@ -38,9 +37,9 @@ class MockProvider(BaseProvider):
         return f"Mock response to: {prompt}"
     
     def stream(self, prompt, system=None):
-        yield f"Mock "
-        yield f"streaming "
-        yield f"response"
+        yield "Mock "
+        yield "streaming "
+        yield "response"
     
     def compare(self, prompt, system=None):
         return {

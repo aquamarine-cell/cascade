@@ -16,7 +16,7 @@ def test_render_banner_default_word():
     result = render_banner()
     plain = result.plain
     lines = plain.split("\n")
-    non_empty = [l for l in lines if l.strip()]
+    non_empty = [line for line in lines if line.strip()]
     assert len(non_empty) >= 3, "Banner should have at least 3 non-empty rows"
 
 

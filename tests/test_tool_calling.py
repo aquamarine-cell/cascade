@@ -4,13 +4,11 @@ These tests mock the HTTP layer to verify that providers correctly format
 tool definitions and handle tool_use/tool_result round trips.
 """
 
-import json
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 from cascade.providers.base import BaseProvider, ProviderConfig
-from cascade.tools.schema import ToolDef, callable_to_tool_def
+from cascade.tools.schema import callable_to_tool_def
 
 
 def _make_tools():
@@ -256,6 +254,6 @@ class TestOpenRouterToolCalling:
         }
         mock_response.raise_for_status = MagicMock()
 
-        with patch.object(prov.client, "post", return_value=mock_response) as mock_post:
+        with patch.object(prov.client, "post", return_value=mock_response):
             result, log = prov.ask_with_tools("test", tools)
             assert result == "OK"
